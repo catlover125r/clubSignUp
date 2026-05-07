@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken, adminDb } from '@/lib/firebase-admin'
+import { verifyToken, getAdminDb } from '@/lib/firebase-admin'
 import { appendSignup } from '@/lib/sheets'
 import { FieldValue } from 'firebase-admin/firestore'
 
@@ -17,12 +17,12 @@ export async function POST(req: NextRequest) {
   const { clubId } = await req.json()
   if (!clubId) return NextResponse.json({ error: 'Missing clubId' }, { status: 400 })
 
-  const clubRef = adminDb.collection('clubs').doc(clubId)
+  const clubRef = getAdminDb().collection('clubs').doc(clubId)
   const clubSnap = await clubRef.get()
   if (!clubSnap.exists) return NextResponse.json({ error: 'Club not found' }, { status: 404 })
 
   const club = clubSnap.data()!
-  const signupRef = adminDb
+  const signupRef = getAdminDb()
     .collection('users').doc(decoded.uid)
     .collection('clubs').doc(clubId)
 

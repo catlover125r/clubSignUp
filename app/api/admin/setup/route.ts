@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken, adminDb } from '@/lib/firebase-admin'
+import { verifyToken, getAdminDb } from '@/lib/firebase-admin'
 import { createClubSheet, shareSheet } from '@/lib/sheets'
 import { parse } from 'csv-parse/sync'
 import { FieldValue } from 'firebase-admin/firestore'
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const baseId = slugify(clubName)
     let clubId = baseId
     let suffix = 1
-    while ((await adminDb.collection('clubs').doc(clubId).get()).exists) {
+    while ((await getAdminDb().collection('clubs').doc(clubId).get()).exists) {
       clubId = `${baseId}-${suffix++}`
     }
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       const spreadsheetId = await createClubSheet(clubName)
       await shareSheet(spreadsheetId, advisorEmail)
 
-      await adminDb.collection('clubs').doc(clubId).set({
+      await getAdminDb().collection('clubs').doc(clubId).set({
         name: clubName,
         advisorEmail,
         spreadsheetId,

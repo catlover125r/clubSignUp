@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken, adminDb } from '@/lib/firebase-admin'
+import { verifyToken, getAdminDb } from '@/lib/firebase-admin'
 
 function isAdmin(email: string) {
   const admins = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim())
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const snap = await adminDb.collection('clubs').orderBy('name').get()
+  const snap = await getAdminDb().collection('clubs').orderBy('name').get()
   const clubs = snap.docs.map((doc) => ({
     id: doc.id,
     name: doc.data().name,
@@ -48,6 +48,6 @@ export async function DELETE(req: NextRequest) {
   }
 
   const { clubId } = await req.json()
-  await adminDb.collection('clubs').doc(clubId).delete()
+  await getAdminDb().collection('clubs').doc(clubId).delete()
   return NextResponse.json({ success: true })
 }

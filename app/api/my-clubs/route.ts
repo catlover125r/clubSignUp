@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken, adminDb } from '@/lib/firebase-admin'
+import { verifyToken, getAdminDb } from '@/lib/firebase-admin'
 
 export async function GET(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   }
 
-  const snap = await adminDb
+  const snap = await getAdminDb()
     .collection('users').doc(decoded.uid)
     .collection('clubs')
     .orderBy('joinedAt', 'asc')

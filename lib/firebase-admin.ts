@@ -1,21 +1,27 @@
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app'
-import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getAuth, type Auth } from 'firebase-admin/auth'
+import { getFirestore, type Firestore } from 'firebase-admin/firestore'
 
-function initAdmin(): App {
+let _auth: Auth | null = null
+let _db: Firestore | null = null
+
+function initApp(): App {
   if (getApps().length > 0) return getApps()[0]!
-
-  const serviceAccount = JSON.parse(
-    Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64!, 'base64').toString()
-  )
-
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64!
+  const serviceAccount = JSON.parse(Buffer.from(raw, 'base64').toString())
   return initializeApp({ credential: cert(serviceAccount) })
 }
 
-const adminApp = initAdmin()
-export const adminAuth = getAuth(adminApp)
-export const adminDb = getFirestore(adminApp)
+export function getAdminAuth(): Auth {
+  if (!_auth) _auth = getAuth(initApp())
+  return _auth
+}
+
+export function getAdminDb(): Firestore {
+  if (!_db) _db = getFirestore(initApp())
+  return _db
+}
 
 export async function verifyToken(token: string) {
-  return adminAuth.verifyIdToken(token)
+  return getAdminAuth().verifyIdToken(token)
 }
