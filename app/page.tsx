@@ -44,10 +44,7 @@ export default function LoginPage() {
           </svg>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Club Fair</h1>
-        <p className="text-gray-500 mb-10">
-          Sign in to scan QR codes and join clubs
-        </p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-10">Club Fair</h1>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-6 text-sm">

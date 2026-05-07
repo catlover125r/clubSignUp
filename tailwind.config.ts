@@ -8,6 +8,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'ui-sans-serif', 'sans-serif'],
+      },
       colors: {
         brand: {
           50: '#eff6ff',
