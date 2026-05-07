@@ -9,12 +9,14 @@ export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState('')
   const [signingIn, setSigningIn] = useState(false)
+  const [redirectTo, setRedirectTo] = useState('/scan')
 
   useEffect(() => {
-    if (!loading && user) router.replace('/scan')
-  }, [user, loading, router])
+    if (!loading && user) router.replace(redirectTo)
+  }, [user, loading, router, redirectTo])
 
-  async function handleSignIn() {
+  async function handleSignIn(dest = '/scan') {
+    setRedirectTo(dest)
     setError('')
     setSigningIn(true)
     try {
@@ -59,7 +61,7 @@ export default function LoginPage() {
         )}
 
         <button
-          onClick={handleSignIn}
+          onClick={() => handleSignIn()}
           disabled={signingIn}
           className="w-full flex items-center justify-center gap-2 bg-white border-2 border-gray-200 text-gray-700 font-semibold py-3 px-5 rounded-2xl shadow-sm text-sm hover:border-blue-300 hover:bg-blue-50 active:scale-95 transition-all disabled:opacity-60"
         >
@@ -78,9 +80,9 @@ export default function LoginPage() {
           </p>
         )}
 
-        <a href="/admin" className="mt-3 block text-sm text-gray-600 underline hover:text-gray-800 transition-colors">
+        <button onClick={() => handleSignIn('/admin')} className="mt-3 block w-full text-sm text-gray-600 underline hover:text-gray-800 transition-colors">
           sign in as club leader
-        </a>
+        </button>
       </div>
     </main>
   )
