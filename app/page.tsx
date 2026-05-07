@@ -71,6 +71,10 @@ export default function LoginPage() {
             Use your @{process.env.NEXT_PUBLIC_ALLOWED_DOMAIN} account
           </p>
         )}
+
+        <a href="/admin" className="mt-6 block text-sm text-gray-400 underline hover:text-gray-600 transition-colors">
+          sign in as club leader
+        </a>
       </div>
     </main>
   )
