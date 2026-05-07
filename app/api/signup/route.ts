@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   })
 
   try {
-    await appendSignup(club.spreadsheetId, decoded.name ?? decoded.email, decoded.email)
+    await appendSignup(club.spreadsheetId, decoded.name ?? decoded.email ?? '', decoded.email ?? '')
   } catch (err) {
     console.error('Sheets append failed:', err)
   }
