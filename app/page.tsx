@@ -35,8 +35,14 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-      <div className="w-full max-w-sm">
+    <main className="relative flex flex-col items-center justify-center min-h-screen px-6 text-center">
+      {/* Mobile background image + purple overlay */}
+      <div className="absolute inset-0 md:hidden">
+        <img src="/bg.jpg" alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-purple-200/50" />
+      </div>
+
+      <div className="relative w-full max-w-sm">
         <img src="/logo.png" alt="SEQ Logo" className="w-24 h-24 object-contain mx-auto mb-8" />
 
         <h1 className="text-3xl font-bold text-gray-900 mb-10">Club Fair</h1>
