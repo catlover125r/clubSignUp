@@ -37,12 +37,7 @@ export default function LoginPage() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
       <div className="w-full max-w-sm">
-        <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-lg">
-          <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-        </div>
+        <img src="/logo.png" alt="SEQ Logo" className="w-24 h-24 object-contain mx-auto mb-8" />
 
         <h1 className="text-3xl font-bold text-gray-900 mb-10">Club Fair</h1>
 
