@@ -1,9 +1,9 @@
-import { cert, getApps, initializeApp } from 'firebase-admin/app'
+import { cert, getApps, initializeApp, type App } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 
-function initAdmin() {
-  if (getApps().length > 0) return getApps()[0]
+function initAdmin(): App {
+  if (getApps().length > 0) return getApps()[0]!
 
   const serviceAccount = JSON.parse(
     Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64!, 'base64').toString()
