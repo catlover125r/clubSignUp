@@ -36,9 +36,14 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex flex-col items-center justify-center min-h-screen px-6 text-center">
-      {/* Mobile background image + purple overlay */}
+      {/* Mobile background */}
       <div className="absolute inset-0 md:hidden">
         <img src="/bg.jpg" alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-purple-200/50" />
+      </div>
+      {/* Desktop background */}
+      <div className="absolute inset-0 hidden md:block">
+        <img src="/bg-desktop.jpg" alt="" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-purple-200/50" />
       </div>
 
