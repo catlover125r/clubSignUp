@@ -43,9 +43,12 @@ export async function POST(req: NextRequest) {
 
   for (const row of rows) {
     const clubName = row['Club Name'] ?? row['name'] ?? row['Name']
-    const advisorEmail = row['Advisor Email'] ?? row['email'] ?? row['Email']
+    const advisorEmailRaw = row['Advisor Email'] ?? row['email'] ?? row['Email']
+    const advisorEmails = advisorEmailRaw
+      ? advisorEmailRaw.split(',').map((e: string) => e.trim()).filter(Boolean)
+      : []
 
-    if (!clubName || !advisorEmail) {
+    if (!clubName || advisorEmails.length === 0) {
       results.push({ name: clubName ?? 'unknown', status: 'skipped', error: 'Missing name or email' })
       continue
     }
@@ -59,11 +62,14 @@ export async function POST(req: NextRequest) {
 
     try {
       const spreadsheetId = await createClubSheet(clubName)
-      await shareSheet(spreadsheetId, advisorEmail)
+      for (const email of advisorEmails) {
+        await shareSheet(spreadsheetId, email)
+      }
 
       await getAdminDb().collection('clubs').doc(clubId).set({
         name: clubName,
-        advisorEmail,
+        advisorEmail: advisorEmails[0],
+        advisorEmails,
         spreadsheetId,
         createdAt: FieldValue.serverTimestamp(),
       })
