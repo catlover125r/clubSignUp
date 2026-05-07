@@ -9,7 +9,7 @@
     "setup-clubs": "tsx scripts/setup-clubs.ts"
   },
   "dependencies": {
-    "next": "15.3.1",
+    "next": "15.3.3",
     "react": "^18",
     "react-dom": "^18",
     "firebase": "^10.12.0",

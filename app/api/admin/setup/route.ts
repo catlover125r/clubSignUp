@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   if (!file) return NextResponse.json({ error: 'No CSV file' }, { status: 400 })
 
   const text = await file.text()
-  const rows: { name: string; email: string }[] = parse(text, {
+  const rows: Record<string, string>[] = parse(text, {
     columns: true,
     skip_empty_lines: true,
     trim: true,
