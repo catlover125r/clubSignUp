@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
@@ -27,7 +27,7 @@ export default function AdminPage() {
   const [uploading, setUploading] = useState(false)
   const [results, setResults] = useState<SetupResult[]>([])
   const [unauthorized, setUnauthorized] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [sheetUrl, setSheetUrl] = useState('')
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
@@ -49,23 +49,30 @@ export default function AdminPage() {
     }
   }
 
-  async function handleUpload(e: React.FormEvent) {
+  function extractSheetId(urlOrId: string): string | null {
+    const trimmed = urlOrId.trim()
+    const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+    if (match) return match[1]
+    if (/^[a-zA-Z0-9_-]{20,}$/.test(trimmed)) return trimmed
+    return null
+  }
+
+  async function handleImportSheet(e: React.FormEvent) {
     e.preventDefault()
-    const file = fileRef.current?.files?.[0]
-    if (!file) return
+    const sheetId = extractSheetId(sheetUrl)
+    if (!sheetId) { alert('Paste a valid Google Sheets URL or ID.'); return }
 
     setUploading(true)
     setResults([])
     try {
       const token = await getToken()
-      const form = new FormData()
-      form.append('csv', file)
       const res = await fetch('/api/admin/setup', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetId }),
       })
       const data = await res.json()
+      if (data.error) { alert(data.error); return }
       setResults(data.results ?? [])
       await fetchClubs()
     } finally {
@@ -114,28 +121,31 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* CSV Upload */}
+      {/* Import from Google Sheet */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <h2 className="font-semibold text-gray-900 mb-1">Import Clubs from CSV</h2>
-        <p className="text-sm text-gray-400 mb-4">
-          CSV must have columns: <code className="bg-gray-100 px-1 rounded">Club Name</code> and{' '}
+        <h2 className="font-semibold text-gray-900 mb-1">Import Clubs from Google Sheet</h2>
+        <p className="text-sm text-gray-400 mb-1">
+          Paste the URL of your Google Sheet. It must have columns:{' '}
+          <code className="bg-gray-100 px-1 rounded">Club Name</code> and{' '}
           <code className="bg-gray-100 px-1 rounded">Advisor Email</code>
         </p>
+        <p className="text-xs text-amber-600 mb-4">
+          Share your sheet with the service account email in your <code className="bg-amber-50 px-1 rounded">.env.local</code> (the <code className="bg-amber-50 px-1 rounded">client_email</code> field in your Google credentials) so it can read it.
+        </p>
 
-        <form onSubmit={handleUpload} className="flex gap-3 items-end flex-wrap">
-          <div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv"
-              required
-              className="block text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100"
-            />
-          </div>
+        <form onSubmit={handleImportSheet} className="flex gap-3 items-end flex-wrap">
+          <input
+            type="text"
+            value={sheetUrl}
+            onChange={(e) => setSheetUrl(e.target.value)}
+            placeholder="https://docs.google.com/spreadsheets/d/..."
+            required
+            className="flex-1 min-w-0 text-sm border border-gray-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
           <button
             type="submit"
             disabled={uploading}
-            className="bg-blue-600 text-white font-semibold px-6 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-60"
+            className="bg-blue-600 text-white font-semibold px-6 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap"
           >
             {uploading ? 'Creating…' : 'Create Clubs + Sheets'}
           </button>
