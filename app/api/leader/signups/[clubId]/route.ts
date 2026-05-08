@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken, getAdminDb } from '@/lib/firebase-admin'
 
-export async function GET(req: NextRequest, { params }: { params: { clubId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ clubId: string }> }) {
+  const { clubId } = await params
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: { clubId: stri
   }
 
   const email = decoded.email ?? ''
-  const clubRef = getAdminDb().collection('clubs').doc(params.clubId)
+  const clubRef = getAdminDb().collection('clubs').doc(clubId)
   const clubSnap = await clubRef.get()
   if (!clubSnap.exists) return NextResponse.json({ error: 'Club not found' }, { status: 404 })
 
