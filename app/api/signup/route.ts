@@ -31,15 +31,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ alreadyJoined: true, clubName: club.name })
   }
 
+  const name = decoded.name ?? decoded.email ?? ''
+  const email = decoded.email ?? ''
+
   await signupRef.set({
     clubName: club.name,
     joinedAt: FieldValue.serverTimestamp(),
   })
 
-  try {
-    await appendSignup(club.spreadsheetId, decoded.name ?? decoded.email ?? '', decoded.email ?? '')
-  } catch (err) {
-    console.error('Sheets append failed:', err)
+  // Store name+email on the club side for leader view
+  await getAdminDb()
+    .collection('clubs').doc(clubId)
+    .collection('signups').doc(decoded.uid)
+    .set({ name, email, joinedAt: FieldValue.serverTimestamp() })
+
+  if (club.spreadsheetId) {
+    try {
+      await appendSignup(club.spreadsheetId, name, email)
+    } catch {
+      // best-effort, Firestore is the source of truth
+    }
   }
 
   return NextResponse.json({ success: true, clubName: club.name })

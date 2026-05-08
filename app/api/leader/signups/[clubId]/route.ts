@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken, getAdminDb } from '@/lib/firebase-admin'
-import { readSignups } from '@/lib/sheets'
 
 export async function GET(req: NextRequest, { params }: { params: { clubId: string } }) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -24,10 +23,19 @@ export async function GET(req: NextRequest, { params }: { params: { clubId: stri
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  try {
-    const signups = await readSignups(club.spreadsheetId)
-    return NextResponse.json({ signups })
-  } catch {
-    return NextResponse.json({ signups: [] })
-  }
+  const snap = await clubRef.collection('signups').orderBy('joinedAt').get()
+  const signups = snap.docs.map((doc) => {
+    const d = doc.data()
+    return {
+      name: d.name ?? '',
+      email: d.email ?? '',
+      timestamp: d.joinedAt?.toDate?.()?.toLocaleString('en-US', {
+        timeZone: 'America/New_York',
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }) ?? '',
+    }
+  })
+
+  return NextResponse.json({ signups })
 }
