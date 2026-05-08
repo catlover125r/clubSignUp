@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken, getAdminDb } from '@/lib/firebase-admin'
-import { createClubSheet, shareSheet, readSheetRows } from '@/lib/sheets'
 import { parse } from 'csv-parse/sync'
 import { FieldValue } from 'firebase-admin/firestore'
 
 function isAdmin(email: string) {
-  const admins = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim())
+  const admins = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim()).filter(Boolean)
   return admins.includes(email)
 }
 
@@ -28,26 +27,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  let rows: Record<string, string>[]
+  const formData = await req.formData()
+  const file = formData.get('csv') as File
+  if (!file) return NextResponse.json({ error: 'No CSV file' }, { status: 400 })
 
-  const contentType = req.headers.get('content-type') ?? ''
-  if (contentType.includes('application/json')) {
-    const body = await req.json()
-    const sheetId = body.sheetId as string
-    if (!sheetId) return NextResponse.json({ error: 'No sheetId provided' }, { status: 400 })
-    try {
-      rows = await readSheetRows(sheetId)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error'
-      return NextResponse.json({ error: `Could not read sheet: ${msg}` }, { status: 400 })
-    }
-  } else {
-    const formData = await req.formData()
-    const file = formData.get('csv') as File
-    if (!file) return NextResponse.json({ error: 'No CSV file' }, { status: 400 })
-    const text = await file.text()
-    rows = parse(text, { columns: true, skip_empty_lines: true, trim: true })
-  }
+  const text = await file.text()
+  const rows: Record<string, string>[] = parse(text, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  })
 
   const results: { name: string; status: string; id?: string; error?: string }[] = []
 
@@ -71,19 +60,12 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const spreadsheetId = await createClubSheet(clubName)
-      for (const email of advisorEmails) {
-        await shareSheet(spreadsheetId, email)
-      }
-
       await getAdminDb().collection('clubs').doc(clubId).set({
         name: clubName,
         advisorEmail: advisorEmails[0],
         advisorEmails,
-        spreadsheetId,
         createdAt: FieldValue.serverTimestamp(),
       })
-
       results.push({ name: clubName, status: 'created', id: clubId })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error'

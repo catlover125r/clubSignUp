@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
@@ -26,8 +26,8 @@ export default function AdminPage() {
   const [loadingClubs, setLoadingClubs] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [results, setResults] = useState<SetupResult[]>([])
-  const [unauthorized, setUnauthorized] = useState(false)
-  const [sheetUrl, setSheetUrl] = useState('')
+  const [accessError, setAccessError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
@@ -41,39 +41,38 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/clubs', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (res.status === 403) { setUnauthorized(true); return }
+      if (res.status === 401) { setAccessError('Could not verify your account. Try signing out and back in.'); return }
+      if (res.status === 403) { setAccessError('Your account is not an admin.'); return }
       const data = await res.json()
       setClubs(data.clubs ?? [])
+    } catch {
+      setAccessError('Could not connect. Try refreshing.')
     } finally {
       setLoadingClubs(false)
     }
   }
 
-  function extractSheetId(urlOrId: string): string | null {
-    const trimmed = urlOrId.trim()
-    const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
-    if (match) return match[1]
-    if (/^[a-zA-Z0-9_-]{20,}$/.test(trimmed)) return trimmed
-    return null
-  }
-
-  async function handleImportSheet(e: React.FormEvent) {
+  async function handleUpload(e: React.FormEvent) {
     e.preventDefault()
-    const sheetId = extractSheetId(sheetUrl)
-    if (!sheetId) { alert('Paste a valid Google Sheets URL or ID.'); return }
+    const file = fileRef.current?.files?.[0]
+    if (!file) return
 
     setUploading(true)
     setResults([])
     try {
       const token = await getToken()
+      const form = new FormData()
+      form.append('csv', file)
       const res = await fetch('/api/admin/setup', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId }),
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
       })
+      if (res.status === 401) { alert('Session expired — sign out and back in.'); return }
+      if (res.status === 403) { alert('Not an admin account.'); return }
       const data = await res.json()
-      if (data.error) { alert(data.error); return }
       setResults(data.results ?? [])
+      if (fileRef.current) fileRef.current.value = ''
       await fetchClubs()
     } finally {
       setUploading(false)
@@ -81,7 +80,7 @@ export default function AdminPage() {
   }
 
   async function handleDelete(clubId: string, clubName: string) {
-    if (!confirm(`Delete ${clubName}? This won't delete the Google Sheet.`)) return
+    if (!confirm(`Delete ${clubName}? This cannot be undone.`)) return
     const token = await getToken()
     await fetch('/api/admin/clubs', {
       method: 'DELETE',
@@ -93,61 +92,49 @@ export default function AdminPage() {
 
   if (loading || !user) return <Spinner />
 
-  if (unauthorized) {
+  if (accessError) {
     return (
       <main className="flex items-center justify-center min-h-screen px-6">
         <div className="text-center">
           <p className="text-red-500 font-semibold text-lg">Access denied</p>
-          <p className="text-gray-400 text-sm mt-1">Your account is not an admin.</p>
-          <Link href="/scan" className="mt-4 inline-block text-blue-600 text-sm">Go to scanner</Link>
+          <p className="text-gray-400 text-sm mt-1">{accessError}</p>
+          <Link href="/" className="mt-4 inline-block text-blue-600 text-sm">Go back</Link>
         </div>
       </main>
     )
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Club Fair Admin</h1>
-        <div className="flex gap-3">
-          <Link href="/print-qr" className="text-sm bg-blue-50 text-blue-700 font-medium px-4 py-2 rounded-xl hover:bg-blue-100">
-            Print QR Codes
-          </Link>
-          <Link href="/scan" className="text-sm text-gray-500 px-4 py-2 rounded-xl hover:bg-gray-100">
-            Student view
-          </Link>
-        </div>
+        <Link href="/print-qr" className="text-sm bg-blue-50 text-blue-700 font-medium px-4 py-2 rounded-xl hover:bg-blue-100">
+          Print QR Codes
+        </Link>
       </div>
 
-      {/* Import from Google Sheet */}
+      {/* CSV Upload */}
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-        <h2 className="font-semibold text-gray-900 mb-1">Import Clubs from Google Sheet</h2>
-        <p className="text-sm text-gray-400 mb-1">
-          Paste the URL of your Google Sheet. It must have columns:{' '}
-          <code className="bg-gray-100 px-1 rounded">Club Name</code> and{' '}
-          <code className="bg-gray-100 px-1 rounded">Advisor Email</code>
-        </p>
-        <p className="text-xs text-amber-600 mb-4">
-          Share your sheet with the service account email in your <code className="bg-amber-50 px-1 rounded">.env.local</code> (the <code className="bg-amber-50 px-1 rounded">client_email</code> field in your Google credentials) so it can read it.
+        <h2 className="font-semibold text-gray-900 mb-1">Add Clubs via CSV</h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Columns: <code className="bg-gray-100 px-1 rounded">Club Name</code> and{' '}
+          <code className="bg-gray-100 px-1 rounded">Advisor Email</code>. Multiple advisor emails can be comma-separated. Clubs that already exist will be skipped.
         </p>
 
-        <form onSubmit={handleImportSheet} className="flex gap-3 items-end flex-wrap">
+        <form onSubmit={handleUpload} className="flex gap-3 items-center flex-wrap">
           <input
-            type="text"
-            value={sheetUrl}
-            onChange={(e) => setSheetUrl(e.target.value)}
-            placeholder="https://docs.google.com/spreadsheets/d/..."
+            ref={fileRef}
+            type="file"
+            accept=".csv"
             required
-            className="flex-1 min-w-0 text-sm border border-gray-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-700 file:font-medium hover:file:bg-blue-100"
           />
           <button
             type="submit"
             disabled={uploading}
-            className="bg-blue-600 text-white font-semibold px-6 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-60 whitespace-nowrap"
+            className="bg-blue-600 text-white font-semibold px-6 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-60"
           >
-            {uploading ? 'Creating…' : 'Create Clubs + Sheets'}
+            {uploading ? 'Adding…' : 'Add Clubs'}
           </button>
         </form>
 
@@ -159,7 +146,7 @@ export default function AdminPage() {
                 r.status === 'error' ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'
               }`}>
                 <span className="font-medium">{r.name}</span>
-                <span>{r.status === 'created' ? '— created' : r.status === 'error' ? `— error: ${r.error}` : '— skipped'}</span>
+                <span>{r.status === 'created' ? '— added' : r.status === 'error' ? `— error: ${r.error}` : '— skipped'}</span>
               </div>
             ))}
           </div>
@@ -171,9 +158,7 @@ export default function AdminPage() {
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="font-semibold text-gray-900">
             All Clubs
-            {clubs.length > 0 && (
-              <span className="ml-2 text-gray-400 font-normal text-sm">({clubs.length})</span>
-            )}
+            {clubs.length > 0 && <span className="ml-2 text-gray-400 font-normal text-sm">({clubs.length})</span>}
           </h2>
           {loadingClubs && <Spinner size="sm" />}
         </div>
@@ -188,9 +173,8 @@ export default function AdminPage() {
               <thead className="bg-gray-50 text-gray-500 uppercase text-xs tracking-wide">
                 <tr>
                   <th className="px-6 py-3 text-left">Club</th>
-                  <th className="px-6 py-3 text-left">Advisor</th>
+                  <th className="px-6 py-3 text-left">Advisor Email</th>
                   <th className="px-6 py-3 text-left">QR URL</th>
-                  <th className="px-6 py-3 text-left">Sheet</th>
                   <th className="px-6 py-3" />
                 </tr>
               </thead>
@@ -203,16 +187,6 @@ export default function AdminPage() {
                       <code className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded">
                         /join/{club.id}
                       </code>
-                    </td>
-                    <td className="px-6 py-3">
-                      <a
-                        href={`https://docs.google.com/spreadsheets/d/${club.spreadsheetId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        Open sheet
-                      </a>
                     </td>
                     <td className="px-6 py-3 text-right">
                       <button
