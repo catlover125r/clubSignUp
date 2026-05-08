@@ -80,7 +80,7 @@ export default function LoginPage() {
           </p>
         )}
 
-        <button onClick={() => handleSignIn('/admin')} className="mt-3 block w-full text-sm text-gray-600 underline hover:text-gray-800 transition-colors">
+        <button onClick={() => handleSignIn('/leader')} className="mt-3 block w-full text-sm text-gray-600 underline hover:text-gray-800 transition-colors">
           sign in as club leader
         </button>
       </div>

@@ -78,13 +78,18 @@ async function main() {
 
   for (const row of rows) {
     const clubName = row['Club Name'] ?? row['name'] ?? row['Name']
-    const advisorEmail = row['Advisor Email'] ?? row['email'] ?? row['Email']
+    const advisorEmailRaw = row['Advisor Email'] ?? row['email'] ?? row['Email']
+    const advisorEmails = advisorEmailRaw
+      ? advisorEmailRaw.split(',').map((e: string) => e.trim()).filter(Boolean)
+      : []
 
-    if (!clubName || !advisorEmail) {
+    if (!clubName || advisorEmails.length === 0) {
       console.log(`  SKIP  — missing name or email in row: ${JSON.stringify(row)}`)
       skipped++
       continue
     }
+
+    const advisorEmail = advisorEmails[0]
 
     const baseId = slugify(clubName)
     let clubId = baseId
@@ -118,16 +123,19 @@ async function main() {
 
       const spreadsheetId = sheetRes.data.spreadsheetId!
 
-      await drive.permissions.create({
-        fileId: spreadsheetId,
-        sendNotificationEmail: true,
-        emailMessage: 'Your club sign-up spreadsheet has been created. It will update in real time during the club fair.',
-        requestBody: { role: 'writer', type: 'user', emailAddress: advisorEmail },
-      })
+      for (const email of advisorEmails) {
+        await drive.permissions.create({
+          fileId: spreadsheetId,
+          sendNotificationEmail: true,
+          emailMessage: 'Your club sign-up spreadsheet has been created. It will update in real time during the club fair.',
+          requestBody: { role: 'writer', type: 'user', emailAddress: email },
+        })
+      }
 
       await db.collection('clubs').doc(clubId).set({
         name: clubName,
         advisorEmail,
+        advisorEmails,
         spreadsheetId,
         createdAt: FieldValue.serverTimestamp(),
       })
@@ -136,7 +144,8 @@ async function main() {
       created++
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.log(`ERROR: ${msg}`)
+      const detail = (err as any)?.response?.data
+      console.log(`ERROR: ${msg}`, JSON.stringify(detail, null, 2))
       errors++
     }
   }
