@@ -25,6 +25,7 @@ export default function LeaderPage() {
   const [loadingSignups, setLoadingSignups] = useState<Record<string, boolean>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [noClubs, setNoClubs] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!loading && !user) router.replace('/')
@@ -33,12 +34,19 @@ export default function LeaderPage() {
 
   async function fetchClubs() {
     setLoadingClubs(true)
+    setError('')
+    setNoClubs(false)
     try {
       const token = await getToken()
       const res = await fetch('/api/leader/clubs', {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Could not load your clubs.')
+        setClubs([])
+        return
+      }
       const list: Club[] = data.clubs ?? []
       setClubs(list)
       if (list.length === 0) setNoClubs(true)
@@ -47,6 +55,9 @@ export default function LeaderPage() {
         setExpanded({ [list[0].id]: true })
         fetchSignups(list[0].id)
       }
+    } catch {
+      setError('Could not connect. Try refreshing.')
+      setClubs([])
     } finally {
       setLoadingClubs(false)
     }
@@ -61,6 +72,10 @@ export default function LeaderPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await res.json()
+      if (!res.ok) {
+        setSignups((prev) => ({ ...prev, [clubId]: [] }))
+        return
+      }
       setSignups((prev) => ({ ...prev, [clubId]: data.signups ?? [] }))
     } finally {
       setLoadingSignups((prev) => ({ ...prev, [clubId]: false }))
@@ -93,6 +108,11 @@ export default function LeaderPage() {
       {loadingClubs ? (
         <div className="flex justify-center py-12">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="bg-white border border-red-200 rounded-2xl px-6 py-12 text-center">
+          <p className="text-red-600 font-medium">Could not load clubs.</p>
+          <p className="text-gray-400 text-sm mt-1">{error}</p>
         </div>
       ) : noClubs ? (
         <div className="bg-white border border-gray-200 rounded-2xl px-6 py-12 text-center">
