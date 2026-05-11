@@ -17,6 +17,7 @@ interface SetupResult {
   status: 'created' | 'skipped' | 'error'
   id?: string
   error?: string
+  warning?: string
 }
 
 export default function AdminPage() {
@@ -146,7 +147,13 @@ export default function AdminPage() {
                 r.status === 'error' ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-500'
               }`}>
                 <span className="font-medium">{r.name}</span>
-                <span>{r.status === 'created' ? '— added' : r.status === 'error' ? `— error: ${r.error}` : '— skipped'}</span>
+                <span>
+                  {r.status === 'created'
+                    ? `— added${r.warning ? ` (${r.warning})` : ''}`
+                    : r.status === 'error'
+                      ? `— error: ${r.error}`
+                      : `— skipped${r.error ? `: ${r.error}` : ''}`}
+                </span>
               </div>
             ))}
           </div>

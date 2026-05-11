@@ -11,6 +11,7 @@ import { join } from 'path'
 import { parse } from 'csv-parse/sync'
 import { cert, initializeApp } from 'firebase-admin/app'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
+import { createClubSheet, shareSheet } from '../lib/sheets'
 
 function loadEnv() {
   try {
@@ -33,6 +34,10 @@ loadEnv()
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+}
+
+function getErrorMessage(err: unknown) {
+  return err instanceof Error ? err.message : 'Unknown error'
 }
 
 async function main() {
@@ -68,21 +73,44 @@ async function main() {
       continue
     }
 
-    const baseId = slugify(clubName)
-    let clubId = baseId
-    let suffix = 1
-    while ((await db.collection('clubs').doc(clubId).get()).exists) {
-      clubId = `${baseId}-${suffix++}`
+    const clubId = slugify(clubName)
+    if (!clubId) {
+      console.log(`  SKIP  — invalid club name: ${clubName}`)
+      skipped++
+      continue
+    }
+
+    const clubRef = db.collection('clubs').doc(clubId)
+    if ((await clubRef.get()).exists) {
+      console.log(`  SKIP  — already exists: "${clubName}" (${clubId})`)
+      skipped++
+      continue
     }
 
     process.stdout.write(`  Creating "${clubName}" (${clubId})… `)
 
-    await db.collection('clubs').doc(clubId).set({
+    await clubRef.set({
       name: clubName,
       advisorEmail: advisorEmails[0],
       advisorEmails,
       createdAt: FieldValue.serverTimestamp(),
     })
+
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
+      try {
+        const spreadsheetId = await createClubSheet(clubName)
+        await clubRef.update({ spreadsheetId })
+        const shareResults = await Promise.allSettled(
+          advisorEmails.map((email) => shareSheet(spreadsheetId, email))
+        )
+        const failedShares = shareResults.filter((result) => result.status === 'rejected')
+        if (failedShares.length > 0) {
+          process.stdout.write(`sheet created, ${failedShares.length} share ${failedShares.length === 1 ? 'failed' : 'attempts failed'}; `)
+        }
+      } catch (err: unknown) {
+        process.stdout.write(`sheet skipped (${getErrorMessage(err)}); `)
+      }
+    }
 
     console.log('done')
     created++

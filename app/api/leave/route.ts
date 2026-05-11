@@ -15,10 +15,19 @@ export async function POST(req: NextRequest) {
   const { clubId } = await req.json()
   if (!clubId) return NextResponse.json({ error: 'Missing clubId' }, { status: 400 })
 
-  await getAdminDb()
-    .collection('users').doc(decoded.uid)
-    .collection('clubs').doc(clubId)
-    .delete()
+  const db = getAdminDb()
+  const batch = db.batch()
+
+  batch.delete(
+    db.collection('users').doc(decoded.uid)
+      .collection('clubs').doc(clubId)
+  )
+  batch.delete(
+    db.collection('clubs').doc(clubId)
+      .collection('signups').doc(decoded.uid)
+  )
+
+  await batch.commit()
 
   return NextResponse.json({ success: true })
 }

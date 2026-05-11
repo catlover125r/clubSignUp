@@ -22,6 +22,19 @@ export function getAdminDb(): Firestore {
   return _db
 }
 
+function isAllowedEmail(email?: string) {
+  const allowedDomain = process.env.ALLOWED_DOMAIN ?? process.env.NEXT_PUBLIC_ALLOWED_DOMAIN
+  if (!allowedDomain) return true
+
+  const normalizedEmail = email?.toLowerCase()
+  const normalizedDomain = allowedDomain.trim().toLowerCase().replace(/^@/, '')
+  return Boolean(normalizedEmail?.endsWith(`@${normalizedDomain}`))
+}
+
 export async function verifyToken(token: string) {
-  return getAdminAuth().verifyIdToken(token)
+  const decoded = await getAdminAuth().verifyIdToken(token)
+  if (!isAllowedEmail(decoded.email)) {
+    throw new Error('Email domain is not allowed')
+  }
+  return decoded
 }

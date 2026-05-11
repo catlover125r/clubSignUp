@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken, getAdminDb } from '@/lib/firebase-admin'
+import { createClubSheet, shareSheet } from '@/lib/sheets'
 import { parse } from 'csv-parse/sync'
 import { FieldValue } from 'firebase-admin/firestore'
 
@@ -10,6 +11,10 @@ function isAdmin(email: string) {
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
+}
+
+function getErrorMessage(err: unknown) {
+  return err instanceof Error ? err.message : 'Unknown error'
 }
 
 export async function POST(req: NextRequest) {
@@ -38,7 +43,8 @@ export async function POST(req: NextRequest) {
     trim: true,
   })
 
-  const results: { name: string; status: string; id?: string; error?: string }[] = []
+  const db = getAdminDb()
+  const results: { name: string; status: string; id?: string; error?: string; warning?: string }[] = []
 
   for (const row of rows) {
     const clubName = row['Club Name'] ?? row['name'] ?? row['Name']
@@ -52,24 +58,46 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    const baseId = slugify(clubName)
-    let clubId = baseId
-    let suffix = 1
-    while ((await getAdminDb().collection('clubs').doc(clubId).get()).exists) {
-      clubId = `${baseId}-${suffix++}`
+    const clubId = slugify(clubName)
+    if (!clubId) {
+      results.push({ name: clubName, status: 'skipped', error: 'Invalid club name' })
+      continue
+    }
+
+    const clubRef = db.collection('clubs').doc(clubId)
+    if ((await clubRef.get()).exists) {
+      results.push({ name: clubName, status: 'skipped', id: clubId, error: 'Club already exists' })
+      continue
     }
 
     try {
-      await getAdminDb().collection('clubs').doc(clubId).set({
+      await clubRef.set({
         name: clubName,
         advisorEmail: advisorEmails[0],
         advisorEmails,
         createdAt: FieldValue.serverTimestamp(),
       })
-      results.push({ name: clubName, status: 'created', id: clubId })
+
+      let warning: string | undefined
+      if (process.env.GOOGLE_SERVICE_ACCOUNT_BASE64) {
+        try {
+          const spreadsheetId = await createClubSheet(clubName)
+          await clubRef.update({ spreadsheetId })
+          const shareResults = await Promise.allSettled(
+            advisorEmails.map((email) => shareSheet(spreadsheetId, email))
+          )
+          const failedShares = shareResults.filter((result) => result.status === 'rejected')
+          if (failedShares.length > 0) {
+            warning = `Sheet created, but ${failedShares.length} share ${failedShares.length === 1 ? 'failed' : 'attempts failed'}`
+          }
+        } catch (err: unknown) {
+          warning = `Sheet not created: ${getErrorMessage(err)}`
+        }
+      }
+
+      results.push({ name: clubName, status: 'created', id: clubId, warning })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error'
-      results.push({ name: clubName, status: 'error', error: msg })
+      results.push({ name: clubName, status: 'error', error: getErrorMessage(err) })
     }
   }
 
