@@ -4,6 +4,14 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
 
+interface ClubProfile {
+  id: string
+  name: string
+  meetingPlace: string
+  meetingTime: string
+  description: string
+}
+
 export default function JoinPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const { user, loading, signIn, getToken } = useAuth()
@@ -12,12 +20,27 @@ export default function JoinPage() {
   const [clubName, setClubName] = useState('')
   const [message, setMessage] = useState('')
   const [signingIn, setSigningIn] = useState(false)
+  const [clubProfile, setClubProfile] = useState<ClubProfile | null>(null)
+
+  useEffect(() => {
+    async function loadClubProfile() {
+      try {
+        const res = await fetch(`/api/clubs/${clubId}`)
+        if (!res.ok) return
+        const data = await res.json()
+        setClubProfile(data.club)
+        setClubName(data.club.name)
+      } catch {}
+    }
+
+    loadClubProfile()
+  }, [clubId])
 
   async function joinClub() {
     setStatus('joining')
     try {
-      const token = await getToken()
-      const res = await fetch('/api/signup', {
+      let token = await getToken()
+      let res = await fetch('/api/signup', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -25,6 +48,18 @@ export default function JoinPage() {
         },
         body: JSON.stringify({ clubId }),
       })
+
+      if (res.status === 401) {
+        token = await getToken(true)
+        res = await fetch('/api/signup', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ clubId }),
+        })
+      }
 
       if (res.status === 404) {
         setMessage('Club not found.')
@@ -72,8 +107,12 @@ export default function JoinPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Join this club</h1>
-          <p className="text-gray-500 mb-8">Sign in with your school account to complete sign-up</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {clubProfile?.name ?? 'Join this club'}
+          </h1>
+          <p className="text-gray-500 mb-6">Sign in with your school account to complete sign-up</p>
+
+          {clubProfile && <ProfileDetails profile={clubProfile} />}
 
           {message && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-6 text-sm">
@@ -112,6 +151,7 @@ export default function JoinPage() {
           )}
         </div>
         <p className="text-xl font-semibold text-gray-900">{message}</p>
+        {clubProfile && <ProfileDetails profile={clubProfile} compact />}
         {status === 'done' && (
           <p className="text-gray-400 text-sm mt-2">Redirecting back…</p>
         )}
@@ -125,6 +165,35 @@ export default function JoinPage() {
         )}
       </div>
     </main>
+  )
+}
+
+function ProfileDetails({ profile, compact = false }: { profile: ClubProfile; compact?: boolean }) {
+  const hasDetails = profile.meetingPlace || profile.meetingTime || profile.description
+  if (!hasDetails) return null
+
+  return (
+    <div className={`${compact ? 'mt-5' : 'mb-6'} rounded-2xl border border-gray-200 bg-white px-4 py-4 text-left`}>
+      {(profile.meetingPlace || profile.meetingTime) && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {profile.meetingPlace && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-400">Place</p>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">{profile.meetingPlace}</p>
+            </div>
+          )}
+          {profile.meetingTime && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-400">Time</p>
+              <p className="text-sm font-medium text-gray-900 mt-0.5">{profile.meetingTime}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {profile.description && (
+        <p className="text-sm text-gray-600 leading-6 mt-3">{profile.description}</p>
+      )}
+    </div>
   )
 }
 

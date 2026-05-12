@@ -24,7 +24,14 @@ export async function GET(req: NextRequest) {
     .orderBy('name')
     .get()
 
-  const clubs: { id: string; name: string; spreadsheetId: string }[] = []
+  const clubs: {
+    id: string
+    name: string
+    spreadsheetId: string
+    meetingPlace: string
+    meetingTime: string
+    description: string
+  }[] = []
 
   for (const doc of snap.docs) {
     const data = doc.data()
@@ -39,6 +46,9 @@ export async function GET(req: NextRequest) {
       id: doc.id,
       name: data.name,
       spreadsheetId: data.spreadsheetId,
+      meetingPlace: data.meetingPlace ?? '',
+      meetingTime: data.meetingTime ?? '',
+      description: data.description ?? '',
     })
   }
 
